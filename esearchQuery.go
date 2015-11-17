@@ -53,7 +53,7 @@ func (q *ESearchQuery) ToUrlQuery() (string, error) {
 	//query = add(query, PARAM_QUERY_KEY, q.QueryKey, false)
 	query = add(query, PARAM_RELDATE, q.RelDate, false)
 	if q.RetMax == 0 {
-		q.RetMax = 5
+		q.RetMax = 100
 	}
 	query = addInt(query, PARAM_RETMAX, q.RetMax, false)
 	query = addInt(query, PARAM_RETSTART, q.RetStart, false)
@@ -112,12 +112,13 @@ func pushIdsToChannel(idList []*EId, ids chan string) {
 	}
 }
 
-func (q *ESearchQuery) search(ids chan string, quit chan bool) (uint64, *ETranslationSet, *ETranslationStack, error) {
+func (q *ESearchQuery) search(quit chan bool) (chan string, uint64, *ETranslationSet, *ETranslationStack, error) {
+	ids := make(chan (string), 100)
 	var count uint64
 
 	results, err := q.getResults()
 	if err != nil {
-		return 0, nil, nil, err
+		return nil, 0, nil, nil, err
 	}
 
 	if results.EWebEnv != nil {
@@ -131,7 +132,7 @@ func (q *ESearchQuery) search(ids chan string, quit chan bool) (uint64, *ETransl
 
 	count, err = strconv.ParseUint(results.ECount.Text, 10, 64)
 	if err != nil {
-		return 0, nil, nil, err
+		return nil, 0, nil, nil, err
 	}
 
 	go func() {
@@ -159,18 +160,18 @@ func (q *ESearchQuery) search(ids chan string, quit chan bool) (uint64, *ETransl
 		}
 	}()
 
-	return count, nil, nil, nil
+	return ids, count, nil, nil, nil
 }
 
 func (q *ESearchQuery) Search() (uint64, chan string, *ETranslationSet, *ETranslationStack, error) {
 	//ids := make(chan (string), q.RetMax)
-	ids := make(chan (string), 11)
+
 	quit := make(chan (bool))
 
-	count, translationSet, translationStack, err := q.search(ids, quit)
+	ids, count, translationSet, translationStack, err := q.search(quit)
 
 	//for id := range ids {
-	for i := 0; i < 55; i++ {
+	for i := 0; i < 2055; i++ {
 		id := <-ids
 		log.Println(i)
 		log.Println("------------- " + id)
