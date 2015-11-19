@@ -6,13 +6,22 @@ import (
 )
 
 func Test(t *testing.T) {
-	q := ESearchQuery{DB: "pubmed", Term: "cancer", UseHistory: true}
+	//q := ESearchQuery{DB: "pubmed", Term: "cancer", UseHistory: true}
+	q := ESearchQuery{Term: "cancer"}
 
-	ids, totalCount, translationSet, translationStack, err := q.Search()
+	count, ids, translationSet, translationStack, err := q.Search()
 	log.Println(ids)
-	log.Println(totalCount)
+	log.Println(count)
 	log.Println(translationSet)
 	log.Println(translationStack)
 	log.Println(err)
+
+	//for id := range ids {
+	for i := 0; i < 2055; i++ {
+		id := <-ids
+		log.Println(i)
+		log.Println("------------- " + id)
+	}
+	q.Done()
 
 }

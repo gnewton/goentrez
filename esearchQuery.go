@@ -10,6 +10,10 @@ import (
 	"strconv"
 )
 
+const searchBaseUrl = "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?"
+
+var transport *http.Transport
+
 type ESearchQuery struct {
 	DB         string
 	DateType   string
@@ -23,13 +27,9 @@ type ESearchQuery struct {
 	Term       string
 	UseHistory bool
 	WebEnv     string
+	//
+	quit chan bool
 }
-
-const baseUrl = "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?"
-
-const esearchUrl = baseUrl + "db=pubmed&term=cancer&reldate=60&datetype=edat&retmax=100&usehistory=y"
-
-var transport *http.Transport
 
 func init() {
 	transport = &http.Transport{
@@ -79,8 +79,8 @@ func (q *ESearchQuery) getResults() (*EeSearchResult, error) {
 		log.Println(err)
 		return nil, err
 	}
-	log.Println("ESearchQuery.Search: " + baseUrl + urlParams)
-	resp, err := client.Get(baseUrl + urlParams)
+	log.Println("ESearchQuery.Search: " + searchBaseUrl + urlParams)
+	resp, err := client.Get(searchBaseUrl + urlParams)
 	if err != nil {
 		log.Println(err)
 		return nil, err
@@ -112,7 +112,11 @@ func pushIdsToChannel(idList []*EId, ids chan string) {
 	}
 }
 
-func (q *ESearchQuery) search(quit chan bool) (chan string, uint64, *ETranslationSet, *ETranslationStack, error) {
+func (q *ESearchQuery) Done() {
+	q.quit <- true
+}
+
+func (q *ESearchQuery) search() (chan string, uint64, *ETranslationSet, *ETranslationStack, error) {
 	ids := make(chan (string), 100)
 	var count uint64
 
@@ -139,7 +143,7 @@ func (q *ESearchQuery) search(quit chan bool) (chan string, uint64, *ETranslatio
 		log.Println("###############################")
 		for {
 			select {
-			case <-quit:
+			case <-q.quit:
 				close(ids)
 				return
 			default:
@@ -166,17 +170,10 @@ func (q *ESearchQuery) search(quit chan bool) (chan string, uint64, *ETranslatio
 func (q *ESearchQuery) Search() (uint64, chan string, *ETranslationSet, *ETranslationStack, error) {
 	//ids := make(chan (string), q.RetMax)
 
-	quit := make(chan (bool))
+	q.quit = make(chan (bool))
 
-	ids, count, translationSet, translationStack, err := q.search(quit)
+	ids, count, translationSet, translationStack, err := q.search()
 
-	//for id := range ids {
-	for i := 0; i < 2055; i++ {
-		id := <-ids
-		log.Println(i)
-		log.Println("------------- " + id)
-	}
-	quit <- true
 	return count, ids, translationSet, translationStack, err
 
 	//return ids, count, translationSet, translationStack, err
